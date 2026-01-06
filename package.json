@@ -1,0 +1,46 @@
+{
+  "name": "icarus-flow",
+  "version": "1.0.0",
+  "description": "Multi-Step Agentic Workflows on Icarus - A deterministic, auditable, policy-aware execution layer for enterprise AI workflows",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "demo": "tsx src/demo/run-workflow.ts"
+  },
+  "keywords": [
+    "icarus",
+    "weil-sdk",
+    "agentic-ai",
+    "workflow",
+    "blockchain",
+    "mcp",
+    "enterprise"
+  ],
+  "author": "IcarusFlow Team",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.20.0",
+    "zod": "^3.22.4",
+    "uuid": "^9.0.0",
+    "winston": "^3.11.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.3.0",
+    "tsx": "^4.6.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
