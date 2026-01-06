@@ -14,6 +14,10 @@ export * from './planner/index.js';
 export * from './connectors/index.js';
 export * from './chain/index.js';
 export * from './utils/index.js';
+export * from './store/index.js';
+
+// Export API schemas with namespace to avoid conflicts
+export * as ApiSchemas from './api/schemas.js';
 
 // Main IcarusFlow class
 import { WorkflowCompiler } from './core/workflow-compiler.js';

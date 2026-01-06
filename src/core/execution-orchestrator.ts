@@ -385,8 +385,14 @@ export class ExecutionOrchestrator {
       timestamp: new Date(),
     };
 
-    // In production, this would be stored on-chain or in a durable store
-    console.log(`Checkpoint: ${JSON.stringify(checkpointData)}`);
+    // Log checkpoint to audit trail
+    await this.logAuditEvent(flow, 'STATE_COMMIT', {
+      type: 'checkpoint',
+      completedCount: checkpointData.completedTasks.length,
+      totalTasks: flow.tasks.length,
+    });
+
+    console.log(`[Checkpoint] Flow ${flow.id.substring(0, 8)}... - ${checkpointData.completedTasks.length}/${flow.tasks.length} tasks complete`);
   }
 
   /**
@@ -456,23 +462,84 @@ export class ExecutionOrchestrator {
     checkpointData: unknown,
     policyContext: PolicyContext
   ): Promise<ExecutionResult> {
-    // Restore context from checkpoint
-    console.log('Recovering workflow from checkpoint...');
+    console.log('[Recovery] Recovering workflow from checkpoint...');
     
-    // Mark already completed tasks
     const checkpoint = checkpointData as {
       completedTasks: string[];
       variables: Record<string, unknown>;
     };
 
+    // Mark already completed tasks
     for (const taskId of checkpoint.completedTasks) {
       const task = flow.tasks.find((t) => t.id === taskId);
       if (task) {
         task.status = 'SUCCESS';
+        console.log(`[Recovery] Marking task ${taskId} as complete (from checkpoint)`);
       }
     }
 
-    // Continue execution
+    // Log recovery attempt
+    await this.logAuditEvent(flow, 'WORKFLOW_STARTED', {
+      type: 'recovery',
+      fromCheckpoint: true,
+      previouslyCompleted: checkpoint.completedTasks.length,
+    });
+
+    // Continue execution from where we left off
     return this.executeFlow(flow, policyContext);
+  }
+
+  /**
+   * Rollback workflow to a previous state
+   */
+  async rollbackWorkflow(
+    flow: Flow,
+    toTaskId?: string
+  ): Promise<{ success: boolean; rolledBackTasks: string[] }> {
+    console.log(`[Rollback] Rolling back workflow ${flow.id.substring(0, 8)}...`);
+    
+    const rolledBackTasks: string[] = [];
+    const context = this.createExecutionContext(flow);
+    
+    // Find tasks to rollback (all tasks after toTaskId, or all if not specified)
+    let shouldRollback = !toTaskId;
+    
+    for (const task of flow.tasks) {
+      if (task.id === toTaskId) {
+        shouldRollback = true;
+        continue;
+      }
+      
+      if (shouldRollback && (task.status === 'SUCCESS' || task.status === 'FAILED')) {
+        // Cleanup task resources
+        const executor = this.executors[task.type];
+        if (executor?.cleanup) {
+          try {
+            await executor.cleanup(task, context);
+          } catch (error) {
+            console.warn(`[Rollback] Cleanup failed for task ${task.id}:`, error);
+          }
+        }
+        
+        task.status = 'PENDING';
+        task.result = undefined;
+        task.retryCount = 0;
+        rolledBackTasks.push(task.id);
+      }
+    }
+    
+    // Update flow status
+    flow.status = 'ROLLED_BACK';
+    
+    // Log rollback
+    await this.logAuditEvent(flow, 'ROLLBACK', {
+      toTaskId: toTaskId || 'beginning',
+      rolledBackTasks,
+      rolledBackCount: rolledBackTasks.length,
+    });
+    
+    console.log(`[Rollback] Rolled back ${rolledBackTasks.length} tasks`);
+    
+    return { success: true, rolledBackTasks };
   }
 }
