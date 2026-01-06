@@ -1,21 +1,86 @@
-# IcarusFlow
+# 🦅 IcarusFlow
+
+<div align="center">
 
 **Multi-Step Agentic Workflows on Icarus**
 
-A deterministic, auditable, policy-aware execution layer that binds probabilistic LLM reasoning to verifiable on-chain state transitions.
+*A deterministic, auditable, policy-aware execution layer that binds probabilistic LLM reasoning to verifiable on-chain state transitions.*
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![WeilChain](https://img.shields.io/badge/WeilChain-Native-green.svg)](https://weilchain.io)
+[![Vercel](https://img.shields.io/badge/Vercel-Live-black.svg)](https://icarus-flow.vercel.app)
 
-## 🎯 What is IcarusFlow?
+**[Live Demo](https://icarus-flow.vercel.app) · [API Docs](#-api-reference) · [Architecture](#-how-it-works)**
 
-IcarusFlow is **NOT** just another AI chatbot or autonomous agent. It is a **controlled execution system** where:
+</div>
 
-- 🧠 **The LLM proposes plans** - translates natural language to structured workflows
-- ✅ **The system validates them** - policy checks, compilation, security verification
-- ⛓️ **The blockchain commits state** - immutable audit trail for every action
-- ⚙️ **Executors perform bounded actions** - deterministic, sandboxed task execution
+---
+
+## 🎯 The Problem We Solve
+
+**AI agents are powerful, but they're a compliance nightmare.**
+
+| Problem | Real-World Impact |
+|---------|-------------------|
+| 🎲 **Non-deterministic outputs** | Same query → different results → audit failures |
+| 👻 **No audit trail** | "The AI did it" isn't acceptable for regulators |
+| 🔓 **Unbounded actions** | Agents can execute anything without approval |
+| 📊 **Data access chaos** | No policy enforcement on sensitive data |
+
+### Our Solution: **Constrained Autonomy**
+
+IcarusFlow creates a **trust boundary** between what AI proposes and what actually executes:
+
+```
+┌─────────────────┐      ┌──────────────────┐      ┌────────────────┐
+│   LLM Proposes  │ ──▶  │ System Validates │ ──▶  │ Chain Commits  │
+│   (Fuzzy)       │      │ (Deterministic)  │      │ (Immutable)    │
+└─────────────────┘      └──────────────────┘      └────────────────┘
+```
+
+---
+
+## ⚡ How It Works (60 Seconds)
+
+**Step 1: User provides natural language intent**
+```
+"Query last month's sales from Snowflake, 
+ upload the results to S3, 
+ and email the summary to the finance team"
+```
+
+**Step 2: LLM Planner decomposes into structured workflow**
+```json
+{
+  "tasks": [
+    { "type": "SNOWFLAKE_QUERY", "description": "Query sales data" },
+    { "type": "S3_UPLOAD", "description": "Store results" },
+    { "type": "EMAIL_SEND", "description": "Notify finance team" }
+  ]
+}
+```
+
+**Step 3: Policy Validator enforces rules**
+- ✅ User has `analyst` role for Snowflake access
+- ✅ Data classification allows email distribution
+- ❌ Would block if compliance rules violated
+
+**Step 4: Execution Orchestrator runs tasks**
+- Deterministic, bounded execution
+- Each task produces verifiable output hash
+
+**Step 5: Chain Audit Logger commits state**
+```
+Flow Commit: 0x7a8b9c...
+├── Task 1: SNOWFLAKE_QUERY → 0xabc123...
+├── Task 2: S3_UPLOAD → 0xdef456...
+└── Task 3: EMAIL_SEND → 0x789abc...
+```
+
+---
+
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -33,390 +98,273 @@ IcarusFlow is **NOT** just another AI chatbot or autonomous agent. It is a **con
 │                    │    S3     │  ◀── MCP Connectors                │
 │                    │   Email   │                                    │
 │                    │   IMFS    │                                    │
+│                    │  Quiver   │                                    │
 │                    └───────────┘                                    │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Node.js >= 18.0.0
-- npm or yarn
-- OpenAI API key (for natural language processing)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/DiveshK007/IcarusFlow.git
-cd IcarusFlow
-
-# Install dependencies
-npm install
-
-# Copy environment configuration
-cp .env.example .env
-
-# Add your OpenAI API key to .env
-echo "OPENAI_API_KEY=your-key-here" >> .env
-
-# Build the project
-npm run build
-```
-
-### Run the Demo
-
-```bash
-# Run with predefined workflow (no API key needed)
-npm run demo
-
-# Or use the CLI
-npm run cli demo
-
-# With natural language (requires OpenAI API key)
-npm run cli demo --nl
-```
-
-### API Server (Vercel)
-
-The project is deployed at: **https://icarus-flow.vercel.app**
-
-**Endpoints:**
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/health` | GET | Health check and service info |
-| `/api/workflow/execute` | POST | Execute workflow from natural language |
-| `/api/workflow/execute-plan` | POST | Execute predefined workflow plan |
-| `/api/workflow/verify` | POST | Verify workflow on chain |
-
-**Example API Request:**
-```bash
-curl -X POST https://icarus-flow.vercel.app/api/workflow/execute-plan \
-  -H "Content-Type: application/json" \
-  -d '{
-    "plan": {
-      "tasks": [
-        {
-          "taskType": "DATA_TRANSFORM",
-          "description": "Transform data",
-          "params": { "operation": "aggregate" }
-        }
-      ]
-    }
-  }'
-```
-
-## 💻 Usage
-
-### Programmatic Usage
-
-```typescript
-import { IcarusFlow } from 'icarus-flow';
-
-const icarus = new IcarusFlow({
-  config: {
-    llm: {
-      provider: 'openai',
-      model: 'gpt-4',
-      apiKey: process.env.OPENAI_API_KEY,
-    },
-  },
-});
-
-// Define policy context
-const policyContext = {
-  userId: 'user-001',
-  roles: ['analyst', 'data_admin'],
-  department: 'Engineering',
-  dataClassifications: ['internal'],
-  timestamp: new Date(),
-  region: 'us',
-};
-
-// Process a natural language request
-const result = await icarus.processRequest(
-  "Get this quarter's churn rate by product, save to S3, and email the team",
-  policyContext
-);
-
-if (result.success) {
-  console.log('Workflow completed!');
-  console.log('Flow ID:', result.flow?.id);
-  console.log('Chain commit:', result.chainCommitHash);
-}
-```
-
-### CLI Usage
-
-```bash
-# Execute from natural language
-npm run cli execute "Get sales data and send report to team"
-
-# Execute from JSON plan file
-npm run cli execute-plan ./my-workflow.json
-
-# Verify workflow on chain
-npm run cli verify <flowId>
-
-# Run demo
-npm run cli demo
-```
-
-### Pre-defined Workflow Example
-
-```typescript
-const workflowPlan = {
-  id: 'my-workflow',
-  intent: {
-    rawInput: 'Data pipeline',
-    parsedIntent: 'Execute data pipeline',
-    confidence: 1.0,
-    entities: [],
-  },
-  tasks: [
-    {
-      taskType: 'SNOWFLAKE_QUERY',
-      description: 'Query sales data',
-      params: { query: 'SELECT * FROM sales LIMIT 100' },
-      dependencies: [],
-      estimatedDurationMs: 2000,
-    },
-    {
-      taskType: 'DATA_TRANSFORM',
-      description: 'Transform results',
-      params: { operation: 'aggregate', groupBy: 'region' },
-      dependencies: ['task_0'],
-      estimatedDurationMs: 1000,
-    },
-    {
-      taskType: 'EMAIL_SEND',
-      description: 'Send report',
-      params: { to: 'team@example.com', subject: 'Sales Report' },
-      dependencies: ['task_1'],
-      estimatedDurationMs: 500,
-    },
-  ],
-  estimatedDurationMs: 3500,
-  requiredConnectors: ['SNOWFLAKE_QUERY', 'DATA_TRANSFORM', 'EMAIL_SEND'],
-  riskAssessment: {
-    overallRisk: 'LOW',
-    dataAccessRisks: [],
-    complianceFlags: [],
-    recommendations: [],
-  },
-};
-
-const result = await icarus.executePlan(workflowPlan, policyContext);
-```
-
-## 🏗️ Architecture
-
 ### Core Components
 
-| Component | Purpose |
-|-----------|---------|
-| **LLM Planner** | Translates natural language → structured workflow plans |
-| **Workflow Compiler** | Validates plans, builds DAGs, detects cycles |
-| **Policy Validator** | Enforces RBAC, rate limits, data classification |
-| **Execution Orchestrator** | FSM-based execution with checkpointing |
-| **Chain Audit Logger** | On-chain commits with cryptographic verification |
-| **MCP Connectors** | Snowflake, S3, Email, IMFS executors |
-
-### Workflow States (FSM)
-
-```
-PENDING → RUNNING → COMMITTED
-                 ↘ FAILED → ROLLED_BACK
-```
-
-### Icarus SDK Integration
-
-IcarusFlow uses an **adapter pattern** for chain integration:
-
-```typescript
-// Mock adapter for development/testing
-import { MockIcarusAdapter } from './chain/icarus-adapter';
-
-// Production adapter (when SDK available)
-import { WeilChainIcarusAdapter } from './chain/icarus-adapter';
-
-const adapter = createIcarusAdapter('mock'); // or 'weilchain'
-```
-
-## 📁 Project Structure
-
-```
-IcarusFlow/
-├── src/
-│   ├── index.ts                    # Main IcarusFlow class
-│   ├── cli.ts                      # Command-line interface
-│   ├── types/                      # TypeScript definitions
-│   ├── core/                       # Core engine
-│   │   ├── workflow-compiler.ts    # DAG compilation
-│   │   ├── policy-validator.ts     # Policy enforcement
-│   │   └── execution-orchestrator.ts # FSM execution
-│   ├── planner/                    # LLM integration
-│   │   └── llm-planner.ts          # OpenAI planning
-│   ├── connectors/                 # Task executors
-│   │   ├── snowflake-executor.ts
-│   │   ├── s3-executor.ts
-│   │   ├── email-executor.ts
-│   │   └── ...
-│   ├── chain/                      # Blockchain layer
-│   │   ├── audit-logger.ts         # Audit logging
-│   │   └── icarus-adapter.ts       # SDK adapter
-│   ├── store/                      # State persistence
-│   │   └── workflow-store.ts
-│   ├── api/                        # API schemas
-│   │   └── schemas.ts
-│   └── __tests__/                  # Integration tests
-├── api/                            # Vercel API routes
-│   ├── health.ts
-│   └── workflow/
-│       ├── execute.ts
-│       ├── execute-plan.ts
-│       └── verify.ts
-├── docs/
-│   ├── ARCHITECTURE.md
-│   └── API.md
-├── package.json
-├── tsconfig.json
-├── vercel.json
-└── .env.example
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file:
-
-```env
-# Required for natural language processing
-OPENAI_API_KEY=sk-...
-
-# Optional: Override default model
-OPENAI_MODEL=gpt-4
-
-# Optional: Chain configuration
-WEILCHAIN_RPC_URL=https://rpc.weilchain.io
-WEILCHAIN_NETWORK=testnet
-WEILCHAIN_PRIVATE_KEY=your-private-key
-
-# Optional: Connector credentials
-SNOWFLAKE_ACCOUNT=...
-SNOWFLAKE_USER=...
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-```
-
-### Policy Configuration
-
-```typescript
-const policies = [
-  {
-    id: 'data-access',
-    name: 'Data Access Control',
-    rules: [
-      {
-        type: 'ROLE_PERMISSION',
-        condition: "task.type === 'SNOWFLAKE_QUERY' && !user.roles.includes('analyst')",
-        action: 'DENY',
-        message: 'Snowflake access requires analyst role',
-      },
-    ],
-    enforcementLevel: 'STRICT',
-  },
-];
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm test -- --coverage
-
-# Run specific test file
-npm test -- src/__tests__/integration.test.ts
-```
-
-## 🚢 Deployment
-
-### Vercel (Recommended)
-
-1. Connect your GitHub repo to Vercel
-2. Set environment variables in Vercel dashboard:
-   - `OPENAI_API_KEY`
-3. Deploy automatically on push
-
-### Docker
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY dist/ ./dist/
-EXPOSE 3000
-CMD ["node", "dist/index.js"]
-```
-
-### Self-hosted
-
-```bash
-# Build
-npm run build
-
-# Start
-NODE_ENV=production node dist/index.js
-```
-
-## 🔐 Security Model
-
-- **No secrets exposed to LLM** - credentials never touch the AI
-- **Capability-based execution** - signed tokens for each operation
-- **Policy enforcement** - RBAC, rate limits, data classification
-- **Chain-verified state** - tamper-evident audit trail
-
-## 📊 Available Task Types
-
-| Task Type | Description |
-|-----------|-------------|
-| `SNOWFLAKE_QUERY` | Query Snowflake data warehouse |
-| `S3_UPLOAD` | Upload files to AWS S3 |
-| `S3_DOWNLOAD` | Download files from AWS S3 |
-| `EMAIL_SEND` | Send email notifications |
-| `CONFLUENCE_PUBLISH` | Publish to Confluence |
-| `IMFS_STORE` | Store in In-Memory File System |
-| `IMFS_RETRIEVE` | Retrieve from IMFS |
-| `DATA_TRANSFORM` | Transform/aggregate data |
-| `CUSTOM` | Custom executor (register your own) |
-
-## 🆚 Why IcarusFlow?
-
-| Feature | LangChain/AutoGPT | Zapier/n8n | **IcarusFlow** |
-|---------|-------------------|------------|----------------|
-| Audit Trail | ❌ No | ⚠️ Limited | ✅ Full on-chain |
-| Policy Enforcement | ❌ No | ⚠️ Basic | ✅ Pre-execution |
-| Direct API Access | ⚠️ Dangerous | ✅ Yes | ✅ Bounded |
-| Reproducibility | ❌ No | ✅ Yes | ✅ Deterministic |
-| Blockchain Native | ❌ No | ❌ No | ✅ Yes |
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE)
-
-## 🤝 Contributing
-
-Contributions welcome! Please read our contributing guidelines.
+| Component | Purpose | Key Feature |
+|-----------|---------|-------------|
+| **LLM Planner** | Convert natural language → workflow | Structured JSON output with confidence scores |
+| **Workflow Compiler** | Validate & optimize task graph | Dependency resolution, parallelization |
+| **Policy Validator** | Enforce security rules | RBAC, data classification, region compliance |
+| **Execution Orchestrator** | Run tasks in order | Deterministic execution, retry logic |
+| **Chain Audit Logger** | Commit to blockchain | Immutable audit trail, verification proofs |
 
 ---
 
-**Built for the Weilliptic Hackathon**
+## 🚀 Quick Start
 
-*IcarusFlow: Where enterprise AI meets blockchain trust.*
+### Option 1: Try the Live API
+
+```bash
+# Health check
+curl https://icarus-flow.vercel.app/api/health
+
+# Execute a workflow (demo mode - no API key required)
+curl -X POST https://icarus-flow.vercel.app/api/workflow/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+    "naturalLanguageInput": "Query sales data from Snowflake and upload to S3"
+  }'
+```
+
+### Option 2: Run Locally
+
+```bash
+# Clone and install
+git clone https://github.com/DiveshK007/IcarusFlow.git
+cd IcarusFlow
+npm install
+
+# Build
+npm run build
+
+# Run demo (deterministic, no API key needed)
+npm run demo
+
+# Or with your OpenAI key for real LLM planning
+export OPENAI_API_KEY=your-key-here
+npm run demo
+```
+
+### Option 3: Use the CLI
+
+```bash
+# Build first
+npm run build
+
+# Plan a workflow
+npx icarus plan "Extract data from Snowflake and email report"
+
+# Execute a plan
+npx icarus execute plan.json
+
+# Verify a workflow on-chain
+npx icarus verify --flow-id abc123 --hash 0x7a8b9c...
+```
+
+---
+
+## 📡 API Reference
+
+### `POST /api/workflow/execute`
+
+Execute a workflow from natural language.
+
+**Request:**
+```json
+{
+  "naturalLanguageInput": "Query sales data and send report",
+  "userId": "analyst-1",
+  "roles": ["analyst", "data-viewer"],
+  "department": "finance"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "executionId": "exec-uuid",
+  "flowId": "flow-uuid",
+  "status": "COMPLETED",
+  "chainCommitHash": "0x7a8b9c...",
+  "executionTimeMs": 1234,
+  "tasks": [
+    {
+      "id": "task-1",
+      "name": "Query Sales Data",
+      "type": "SNOWFLAKE_QUERY",
+      "status": "COMPLETED",
+      "outputHash": "0xabc123..."
+    }
+  ]
+}
+```
+
+### `POST /api/workflow/execute-plan`
+
+Execute a pre-defined workflow plan.
+
+### `POST /api/workflow/verify`
+
+Verify a workflow execution against the chain.
+
+### `GET /api/health`
+
+System health and version info.
+
+---
+
+## 🔗 Icarus SDK Integration
+
+IcarusFlow integrates with the Weilliptic Icarus SDK for blockchain commitments:
+
+```typescript
+// Automatic adapter selection based on config
+const adapter = process.env.ICARUS_ADAPTER_MODE === 'sdk' 
+  ? new WeilChainIcarusAdapter()  // Real SDK
+  : new MockIcarusAdapter();       // Demo mode
+
+// All audit logs go through unified interface
+await adapter.commitWorkflowState(flow, auditLog);
+const verification = await adapter.verifyCommit(flowId, hash);
+```
+
+---
+
+## 📦 Project Structure
+
+```
+IcarusFlow/
+├── api/                    # Vercel serverless functions
+│   ├── health.ts
+│   └── workflow/
+│       ├── execute.ts      # Natural language → execution
+│       ├── execute-plan.ts # Plan → execution
+│       └── verify.ts       # On-chain verification
+├── src/
+│   ├── core/               # Core system components
+│   │   ├── workflow-compiler.ts
+│   │   ├── policy-validator.ts
+│   │   └── execution-orchestrator.ts
+│   ├── planner/            # LLM integration
+│   │   └── llm-planner.ts
+│   ├── chain/              # Blockchain integration
+│   │   ├── audit-logger.ts
+│   │   └── icarus-adapter.ts
+│   ├── connectors/         # MCP connectors
+│   │   ├── snowflake.ts
+│   │   ├── s3.ts
+│   │   ├── email.ts
+│   │   └── ...
+│   ├── store/              # Workflow persistence
+│   ├── utils/              # Demo mode, tracing, errors
+│   └── cli.ts              # Command-line interface
+└── examples/               # Usage examples
+```
+
+---
+
+## 🎪 Demo Mode
+
+For hackathon demonstrations, IcarusFlow includes a deterministic demo mode:
+
+```bash
+# Enable demo mode (default when no OPENAI_API_KEY)
+export ICARUS_DEMO_MODE=true
+npm run demo
+```
+
+Demo mode features:
+- ✅ **Deterministic outputs** - Same input → same output, every time
+- ✅ **No API keys required** - Works offline
+- ✅ **Visual execution traces** - ASCII art workflow visualization
+- ✅ **Predictable timing** - Consistent demo experience
+
+---
+
+## 🔒 Security Model
+
+IcarusFlow implements defense-in-depth:
+
+| Layer | Protection |
+|-------|------------|
+| **Input** | Zod schema validation, sanitization |
+| **Policy** | RBAC, data classification, region rules |
+| **Execution** | Sandboxed connectors, timeout limits |
+| **Output** | Hash verification, no PII in logs |
+| **Audit** | Immutable blockchain commits |
+
+---
+
+## 🛠️ Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build (TypeScript → JavaScript)
+npm run build
+
+# Run tests
+npm test
+
+# Type check
+npm run type-check
+
+# Lint
+npm run lint
+
+# Local development server
+npm run dev
+```
+
+---
+
+## 📊 Metrics
+
+| Metric | Value |
+|--------|-------|
+| Lines of Code | ~3,500 |
+| Test Coverage | Core components |
+| API Latency | <2s (demo mode) |
+| Supported Connectors | 10 |
+
+---
+
+## 🏆 Hackathon Highlights
+
+### Why IcarusFlow Matters
+
+1. **For Enterprises**: Adopt AI agents without compliance risk
+2. **For Developers**: Build multi-step AI workflows with guardrails
+3. **For Auditors**: Complete, immutable execution history
+4. **For WeilChain**: Showcase practical blockchain utility
+
+### Technical Innovations
+
+- **Workflow Compilation**: LLM proposals → validated, optimized task graphs
+- **Policy-Aware Execution**: Every action checked against RBAC rules
+- **Chain Audit Trail**: Cryptographic proof of every state transition
+- **Icarus SDK Integration**: Native WeilChain commitment layer
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Built with ❤️ for the Icarus Hackathon**
+
+[GitHub](https://github.com/DiveshK007/IcarusFlow) · [Live Demo](https://icarus-flow.vercel.app) · [API Health](https://icarus-flow.vercel.app/api/health)
+
+</div>

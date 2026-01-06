@@ -42,11 +42,28 @@ const ExecutePlanRequestSchema = z.object({
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const executionId = uuidv4();
+  const startTime = Date.now();
+
+  // CORS headers for demo accessibility
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ 
-      error: 'Method not allowed',
-      message: 'Use POST method',
-      code: 'METHOD_NOT_ALLOWED'
+    return res.status(405).json({
+      success: false,
+      executionId,
+      error: {
+        code: 'METHOD_NOT_ALLOWED',
+        message: 'Use POST method to execute workflow plans',
+        recovery: 'Send a POST request with a valid workflow plan in the body.',
+      },
+      executionTimeMs: Date.now() - startTime,
     });
   }
 
@@ -54,18 +71,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const validation = ExecutePlanRequestSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({
-      error: 'Validation failed',
-      message: 'Request body validation failed',
-      details: validation.error.errors.map(e => ({
-        field: e.path.join('.'),
-        message: e.message,
-      })),
-      code: 'VALIDATION_ERROR',
+      success: false,
+      executionId,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Request body validation failed',
+        details: validation.error.errors.map(e => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+        recovery: 'Check the request body format and ensure all required fields are present.',
+      },
+      executionTimeMs: Date.now() - startTime,
     });
   }
 
   const { plan: inputPlan, userId, roles, department, region } = validation.data;
-  const startTime = Date.now();
 
   try {
     // Dynamic import to avoid build issues
@@ -110,10 +131,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       success: result.success,
+      executionId,
       flowId: result.flow?.id,
       status: result.flow?.status,
       chainCommitHash: result.chainCommitHash,
-      error: result.error,
       executionTimeMs,
       tasks: result.flow?.tasks.map(t => ({
         id: t.id,
@@ -123,13 +144,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         outputHash: t.result?.outputHash,
         executionTimeMs: t.result?.executionTimeMs,
       })),
+      ...(result.error && {
+        error: {
+          code: 'TASK_EXECUTION_ERROR',
+          message: result.error,
+          recovery: 'Check task parameters and connector availability.',
+        },
+      }),
     });
   } catch (error) {
     console.error('Workflow execution failed:', error);
-    return res.status(500).json({ 
-      error: 'Workflow execution failed',
-      message: error instanceof Error ? error.message : 'Unknown error',
-      code: 'EXECUTION_ERROR',
+    return res.status(500).json({
+      success: false,
+      executionId,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'An unexpected error occurred during workflow execution',
+        recovery: 'Please try again or contact support if the issue persists.',
+      },
+      executionTimeMs: Date.now() - startTime,
     });
   }
 }

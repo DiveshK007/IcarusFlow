@@ -108,10 +108,141 @@ export class LLMPlanner {
   }
 
   /**
+   * Check if running in demo mode (no valid API key)
+   */
+  private isDemoMode(): boolean {
+    const apiKey = this.config.apiKey;
+    return !apiKey || apiKey === '' || apiKey === 'demo-mode' || 
+           process.env.ICARUS_DEMO_MODE === 'true';
+  }
+
+  /**
+   * Generate a demo workflow plan based on keywords in input
+   */
+  private generateDemoPlan(userInput: string, intent: UserIntent): WorkflowPlan {
+    const lowerInput = userInput.toLowerCase();
+    const tasks: PlannedTask[] = [];
+    let taskIndex = 0;
+
+    // Detect data source keywords
+    if (lowerInput.includes('snowflake') || lowerInput.includes('warehouse') || 
+        lowerInput.includes('data') || lowerInput.includes('query') || 
+        lowerInput.includes('churn') || lowerInput.includes('sales')) {
+      tasks.push({
+        taskType: 'SNOWFLAKE_QUERY' as TaskType,
+        description: 'Query data from Snowflake data warehouse',
+        params: {
+          query: 'SELECT * FROM analytics.quarterly_metrics WHERE quarter = CURRENT_QUARTER()',
+          outputFormat: 'json',
+        },
+        dependencies: [],
+        estimatedDurationMs: 3000,
+      });
+      taskIndex++;
+    }
+
+    // Detect transformation keywords
+    if (lowerInput.includes('transform') || lowerInput.includes('format') ||
+        lowerInput.includes('convert') || lowerInput.includes('csv')) {
+      tasks.push({
+        taskType: 'DATA_TRANSFORM' as TaskType,
+        description: 'Transform query results for downstream processing',
+        params: {
+          operation: 'format',
+          outputFormat: 'csv',
+        },
+        dependencies: taskIndex > 0 ? [`task_${taskIndex - 1}`] : [],
+        estimatedDurationMs: 1000,
+      });
+      taskIndex++;
+    }
+
+    // Detect storage keywords
+    if (lowerInput.includes('s3') || lowerInput.includes('save') || 
+        lowerInput.includes('upload') || lowerInput.includes('store')) {
+      tasks.push({
+        taskType: 'S3_UPLOAD' as TaskType,
+        description: 'Upload results to S3 bucket',
+        params: {
+          bucket: 'icarusflow-demo',
+          key: `reports/${new Date().toISOString().split('T')[0]}/report.csv`,
+        },
+        dependencies: taskIndex > 0 ? [`task_${taskIndex - 1}`] : [],
+        estimatedDurationMs: 2000,
+      });
+      taskIndex++;
+    }
+
+    // Detect notification keywords
+    if (lowerInput.includes('email') || lowerInput.includes('send') || 
+        lowerInput.includes('notify') || lowerInput.includes('team')) {
+      tasks.push({
+        taskType: 'EMAIL_SEND' as TaskType,
+        description: 'Send notification email to team',
+        params: {
+          recipients: ['analytics-team@company.com'],
+          subject: 'IcarusFlow Report Generated',
+          body: 'Your requested report has been generated and uploaded.',
+        },
+        dependencies: taskIndex > 0 ? [`task_${taskIndex - 1}`] : [],
+        estimatedDurationMs: 1500,
+      });
+      taskIndex++;
+    }
+
+    // Default fallback if no keywords matched
+    if (tasks.length === 0) {
+      tasks.push(
+        {
+          taskType: 'SNOWFLAKE_QUERY' as TaskType,
+          description: 'Query data from Snowflake',
+          params: { query: 'SELECT * FROM demo_table LIMIT 100' },
+          dependencies: [],
+          estimatedDurationMs: 2000,
+        },
+        {
+          taskType: 'S3_UPLOAD' as TaskType,
+          description: 'Upload results to S3',
+          params: { bucket: 'demo-bucket', key: 'demo-output.json' },
+          dependencies: ['task_0'],
+          estimatedDurationMs: 1500,
+        },
+      );
+    }
+
+    const totalDuration = tasks.reduce((sum, t) => sum + (t.estimatedDurationMs || 0), 0);
+
+    return {
+      id: uuidv4(),
+      intent: {
+        ...intent,
+        parsedIntent: `Demo workflow: ${this.summarizeIntent(userInput)}`,
+        confidence: 0.95,
+      },
+      tasks,
+      estimatedDurationMs: totalDuration,
+      requiredConnectors: [...new Set(tasks.map(t => t.taskType))] as TaskType[],
+      riskAssessment: {
+        overallRisk: 'LOW',
+        dataAccessRisks: [],
+        complianceFlags: [],
+        recommendations: ['This is a demo workflow - all operations are simulated'],
+      },
+    };
+  }
+
+  /**
    * Parse user input and generate a workflow plan
    */
   async planWorkflow(userInput: string): Promise<PlanningResult> {
     const intent = this.parseIntent(userInput);
+
+    // Use demo mode if no valid API key
+    if (this.isDemoMode()) {
+      console.log('📎 Running in DEMO MODE - using deterministic workflow planning');
+      const plan = this.generateDemoPlan(userInput, intent);
+      return { success: true, plan, rawResponse: 'DEMO_MODE' };
+    }
 
     for (let attempt = 0; attempt < this.config.maxPlanningAttempts; attempt++) {
       try {
