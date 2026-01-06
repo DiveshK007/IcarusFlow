@@ -3,17 +3,32 @@
   "builds": [
     {
       "src": "api/**/*.ts",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["src/**/*"]
+      }
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "src": "/api/health",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/api/workflow/execute",
+      "dest": "/api/workflow/execute.ts"
+    },
+    {
+      "src": "/api/workflow/execute-plan",
+      "dest": "/api/workflow/execute-plan.ts"
+    },
+    {
+      "src": "/api/workflow/verify",
+      "dest": "/api/workflow/verify.ts"
     },
     {
       "src": "/(.*)",
-      "dest": "/api/health"
+      "dest": "/api/health.ts"
     }
   ]
 }
