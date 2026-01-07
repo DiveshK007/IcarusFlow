@@ -13,4 +13,6 @@ export {
   type VerificationResult,
   type NetworkInfo,
   type WeilChainConfig,
+  autoDetectAdapter,
 } from './icarus-adapter.js';
+export { ICARUS_FLOW_COMMIT_ABI } from './contract-abi.js';

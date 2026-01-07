@@ -2,33 +2,17 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/**/*.ts",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["src/**/*"]
-      }
+      "src": "dist/server.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/health",
-      "dest": "/api/health.ts"
-    },
-    {
-      "src": "/api/workflow/execute",
-      "dest": "/api/workflow/execute.ts"
-    },
-    {
-      "src": "/api/workflow/execute-plan",
-      "dest": "/api/workflow/execute-plan.ts"
-    },
-    {
-      "src": "/api/workflow/verify",
-      "dest": "/api/workflow/verify.ts"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/api/health.ts"
+      "dest": "/dist/server.js"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
