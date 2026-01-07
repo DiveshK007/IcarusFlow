@@ -3,16 +3,24 @@ import { z } from 'zod';
 
 // Request validation schema
 const ExecuteRequestSchema = z.object({
-  prompt: z.string().min(10, 'Prompt must be at least 10 characters'),
+  input: z.string().min(10, 'Input must be at least 10 characters').optional(),
+  prompt: z.string().min(10, 'Prompt must be at least 10 characters').optional(),
+  context: z.object({
+    userId: z.string().optional(),
+    role: z.string().optional(),
+    department: z.string().optional(),
+  }).optional(),
   userId: z.string().optional(),
   roles: z.array(z.string()).optional(),
   department: z.string().optional(),
   region: z.string().optional(),
+}).refine(data => data.input || data.prompt, {
+  message: 'Either input or prompt must be provided',
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const executionId = `exec-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-  
+
   // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({
@@ -44,25 +52,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 
-  const { prompt, userId, roles, department, region } = validation.data;
+
+  const { input, prompt, context, userId, roles, department, region } = validation.data;
+  const workflowInput = input || prompt || '';
   const startTime = Date.now();
 
   try {
     // Dynamic import to avoid build issues
     const { IcarusFlow, buildExecutionTrace, formatTraceForApi } = await import('../../src/index.js');
-    
-    const icarus = new IcarusFlow();
+
+    const icarus = new IcarusFlow({
+      config: {
+        execution: {
+          maxWorkflowSteps: 50,
+          defaultTimeoutMs: 30000,
+          enablePolicyEnforcement: false, // Disabled for demo
+          enableAuditLog: true,
+          maxRetries: 3,
+        },
+      },
+      autoRegisterExecutors: true,
+    });
 
     const policyContext = {
-      userId: userId || 'api-user',
-      roles: roles || ['analyst'],
-      department: department || 'operations',
-      dataClassifications: ['internal', 'public'],
+      userId: context?.userId || userId || 'api-user',
+      roles: context?.role ? [context.role, 'analyst', 'data_admin'] : (roles || ['analyst', 'data_admin', 'compliance_officer', 'admin']),
+      department: context?.department || department || 'operations',
+      dataClassifications: ['internal', 'public', 'confidential', 'pii'],
       timestamp: new Date(),
       region: region || 'us',
     };
 
-    const result = await icarus.processRequest(prompt, policyContext);
+    const result = await icarus.processRequest(workflowInput, policyContext);
     const executionTimeMs = Date.now() - startTime;
 
     // Build execution trace for response
@@ -74,6 +95,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         executionId,
         flowId: result.flow?.id,
         status: result.flow?.status,
+        tasks: result.flow?.tasks.map(t => ({
+          id: t.id,
+          type: t.type,
+          name: t.name || t.type,
+          status: t.status,
+          result: t.result,
+        })),
+        chainCommitHash: result.chainCommitHash,
         chainCommit: result.chainCommitHash ? {
           transactionHash: result.chainCommitHash,
         } : null,
@@ -83,8 +112,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else {
       // Find failed step if any
       const failedTask = result.flow?.tasks.find(t => t.status === 'FAILED');
-      const failedStepIndex = failedTask 
-        ? result.flow?.tasks.indexOf(failedTask) 
+      const failedStepIndex = failedTask
+        ? result.flow?.tasks.indexOf(failedTask)
         : undefined;
 
       return res.status(400).json({
@@ -111,7 +140,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     const executionTimeMs = Date.now() - startTime;
     console.error(`[${executionId}] Workflow execution error:`, error);
-    
+
     return res.status(500).json({
       success: false,
       executionId,
